@@ -1,6 +1,6 @@
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional, Union
 
-from fastapi import APIRouter, Depends, HTTPException, Header, BackgroundTasks, status
+from fastapi import APIRouter, Depends, HTTPException, Header, BackgroundTasks, status, Query
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import VerificationError, DataValidationError
@@ -8,9 +8,11 @@ from app.db.session import get_db
 from app.integrations.database import Database
 from app.schemas.verification import (
     KycVerificationRequest, BusinessVerificationRequest, 
-    VerificationResponse, VerificationStatusResponse, VerificationReportResponse
+    VerificationResponse, VerificationStatusResponse, VerificationReportResponse,
+    VerificationListResponse, VerificationSummary
 )
 from app.services.apikey import APIKeyService, get_api_key, get_api_key_service
+from app.services.auth import get_current_active_user, get_current_user
 from app.services.verification import VerificationWorkflowService
 from app.services.agent_factory import AgentFactory
 from app.utils.llm import bedrock_client
@@ -18,6 +20,7 @@ from app.utils.validation import validate_verification_request
 from app.integrations.persona import persona_client
 from app.integrations.sift import sift_client
 from app.utils.logging import get_logger
+from app.models.user import User
 
 router = APIRouter()
 logger = get_logger("verify_api")
@@ -54,8 +57,6 @@ def get_verification_service(
 @router.post("/kyc", response_model=VerificationResponse)
 async def start_kyc_verification(
     request: KycVerificationRequest,
-    # api_key: str = Header(..., description="API Key"),
-    # api_key_service: APIKeyService = Depends(get_api_key_service),
     api_key: str = Depends(get_api_key),
     verification_service: VerificationWorkflowService = Depends(get_verification_service)
 ) -> Any:
@@ -78,9 +79,6 @@ async def start_kyc_verification(
     """
     try:
         logger.info(f"Starting KYC verification for user_id {request.user_id}")
-        
-        # Validate API key
-        # await get_api_key(api_key)
         
         # Validate request
         validate_verification_request(request.dict(), "kyc")
@@ -318,6 +316,199 @@ async def get_verification_report(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error getting verification report: {str(e)}"
+        )
+
+
+# NEW ENDPOINT: List all KYC verifications
+@router.get("/kyc/list", response_model=VerificationListResponse)
+async def list_kyc_verifications(
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    List all KYC verifications
+    
+    This endpoint returns a paginated list of KYC verifications with optional status filtering.
+    
+    Args:
+        skip: Number of records to skip for pagination
+        limit: Maximum number of records to return
+        status: Optional filter by verification status
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        VerificationListResponse with list of verifications and total count
+        
+    Raises:
+        HTTPException: If error occurs while fetching verifications
+    """
+    try:
+        logger.info(f"Listing KYC verifications (skip={skip}, limit={limit}, status={status})")
+        
+        db_client = Database(db)
+        
+        # Get KYC verifications
+        verifications, total = await db_client.get_verifications(
+            skip=skip,
+            limit=limit,
+            status=status,
+            verification_type="kyc"
+        )
+        
+        # Convert to response format
+        verification_summaries = []
+        for verification in verifications:
+            verification_summaries.append(
+                VerificationSummary(
+                    verification_id=verification.verification_id,
+                    user_id=verification.user_id,
+                    business_id=verification.business_id,
+                    status=verification.status,
+                    result=verification.result,
+                    created_at=verification.created_at,
+                    completed_at=verification.completed_at
+                )
+            )
+        
+        logger.info(f"Found {total} KYC verifications")
+        
+        return {
+            "items": verification_summaries,
+            "total": total
+        }
+    except Exception as e:
+        logger.error(f"Error listing KYC verifications: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error listing KYC verifications: {str(e)}"
+        )
+
+
+# NEW ENDPOINT: List all KYB verifications
+@router.get("/business/list", response_model=VerificationListResponse)
+async def list_business_verifications(
+    skip: int = 0,
+    limit: int = 100,
+    status: Optional[str] = None,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    List all KYB verifications
+    
+    This endpoint returns a paginated list of KYB verifications with optional status filtering.
+    
+    Args:
+        skip: Number of records to skip for pagination
+        limit: Maximum number of records to return
+        status: Optional filter by verification status
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        VerificationListResponse with list of verifications and total count
+        
+    Raises:
+        HTTPException: If error occurs while fetching verifications
+    """
+    try:
+        logger.info(f"Listing KYB verifications (skip={skip}, limit={limit}, status={status})")
+        
+        db_client = Database(db)
+        
+        # Get KYB verifications
+        verifications, total = await db_client.get_verifications(
+            skip=skip,
+            limit=limit,
+            status=status,
+            verification_type="kyb"
+        )
+        
+        # Convert to response format
+        verification_summaries = []
+        for verification in verifications:
+            verification_summaries.append(
+                VerificationSummary(
+                    verification_id=verification.verification_id,
+                    user_id=verification.user_id,
+                    business_id=verification.business_id,
+                    status=verification.status,
+                    result=verification.result,
+                    created_at=verification.created_at,
+                    completed_at=verification.completed_at
+                )
+            )
+        
+        logger.info(f"Found {total} KYB verifications")
+        
+        return {
+            "items": verification_summaries,
+            "total": total
+        }
+    except Exception as e:
+        logger.error(f"Error listing KYB verifications: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error listing KYB verifications: {str(e)}"
+        )
+
+
+# NEW ENDPOINT: Get detailed verification report with token authentication
+@router.get("/report/detail/{verification_id}", response_model=VerificationReportResponse)
+async def get_detailed_verification_report(
+    verification_id: str,
+    current_user: User = Depends(get_current_active_user),
+    db: AsyncSession = Depends(get_db)
+) -> Any:
+    """
+    Get detailed verification report with token authentication
+    
+    This endpoint returns a detailed report for a verification process using token authentication.
+    
+    Args:
+        verification_id: ID of the verification
+        current_user: Current authenticated user
+        db: Database session
+        
+    Returns:
+        VerificationReportResponse with verification details and results
+        
+    Raises:
+        HTTPException: If verification not found or other error occurs
+    """
+    try:
+        logger.info(f"Getting detailed verification report for verification_id={verification_id}")
+        
+        db_client = Database(db)
+        
+        # Get verification by ID
+        verification = await db_client.get_verification(verification_id)
+        if not verification:
+            logger.warning(f"Verification {verification_id} not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Verification {verification_id} not found"
+            )
+        
+        # Build the report based on the verification type
+        if verification.business_id:
+            # Business verification report
+            return await _build_business_verification_report(db_client, verification)
+        else:
+            # User verification report
+            return await _build_user_verification_report(db_client, verification)
+            
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Error getting detailed verification report: {str(e)}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error getting detailed verification report: {str(e)}"
         )
 
 

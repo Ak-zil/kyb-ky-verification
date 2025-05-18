@@ -7,8 +7,12 @@ from fastapi.security import OAuth2PasswordRequestForm
 from app.core.config import settings
 from app.core.security import create_access_token
 from app.db.session import get_db
-from app.schemas.auth import LoginRequest, LoginResponse, RefreshTokenRequest, RefreshTokenResponse
-from app.services.auth import AuthService, get_auth_service
+from app.models.user import User
+from app.schemas.auth import (
+    LoginRequest, LoginResponse, RefreshTokenRequest, RefreshTokenResponse,
+    UserResponse
+)
+from app.services.auth import AuthService, get_auth_service, get_current_active_user
 
 router = APIRouter()
 
@@ -94,3 +98,32 @@ async def refresh_token(
             detail="Invalid refresh token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+# New endpoints for user info and token verification
+
+@router.get("/me", response_model=UserResponse)
+async def get_current_user_info(
+    current_user: User = Depends(get_current_active_user)
+) -> Any:
+    """
+    Get current user information
+    
+    This endpoint returns information about the currently authenticated user.
+    """
+    return {
+        "id": current_user.id,
+        "email": current_user.email,
+        "is_admin": current_user.is_admin,
+        "is_active": current_user.is_active
+    }
+
+@router.get("/verify-token")
+async def verify_auth_token(
+    current_user: User = Depends(get_current_active_user)
+) -> Any:
+    """
+    Verify authentication token
+    
+    This endpoint verifies if the provided authentication token is valid.
+    """
+    return {"valid": True}

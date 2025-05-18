@@ -64,3 +64,14 @@ class LoginResponse(Token):
 
 class RefreshTokenResponse(Token):
     pass
+
+
+# New User Response Schema
+class UserResponse(BaseModel):
+    id: int
+    email: str
+    is_admin: bool
+    is_active: bool
+
+    class Config:
+        orm_mode = True

@@ -1,8 +1,8 @@
 import json
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from sqlalchemy import select, update
+from sqlalchemy import select, update, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user import User, APIKey
@@ -391,4 +391,56 @@ class Database:
             return result.scalars().first()
         except Exception as e:
             self.logger.error(f"Error getting business verification: {str(e)}")
+            raise
+
+    # New Methods for Listing Verifications
+    async def get_verifications(
+        self,
+        skip: int = 0,
+        limit: int = 100,
+        status: Optional[str] = None,
+        verification_type: Optional[str] = None
+    ) -> Tuple[List[Verification], int]:
+        """
+        Get verifications with filtering and pagination
+        
+        Args:
+            skip: Number of records to skip
+            limit: Maximum number of records to return
+            status: Optional status filter
+            verification_type: 'kyc' (user_id is not null) or 'kyb' (business_id is not null)
+            
+        Returns:
+            Tuple of (list of verifications, total count)
+        """
+        try:
+            # Build the base query
+            query = select(Verification)
+            count_query = select(func.count()).select_from(Verification)
+            
+            # Apply filters
+            if status:
+                query = query.where(Verification.status == status)
+                count_query = count_query.where(Verification.status == status)
+                
+            if verification_type == "kyc":
+                query = query.where(Verification.user_id.is_not(None))
+                count_query = count_query.where(Verification.user_id.is_not(None))
+            elif verification_type == "kyb":
+                query = query.where(Verification.business_id.is_not(None))
+                count_query = count_query.where(Verification.business_id.is_not(None))
+            
+            # Add pagination and ordering
+            query = query.order_by(desc(Verification.created_at)).offset(skip).limit(limit)
+            
+            # Execute queries
+            result = await self.session.execute(query)
+            count_result = await self.session.execute(count_query)
+            
+            verifications = result.scalars().all()
+            total_count = count_result.scalar()
+            
+            return verifications, total_count
+        except Exception as e:
+            self.logger.error(f"Error getting verifications: {str(e)}")
             raise

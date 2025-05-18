@@ -67,3 +67,19 @@ class AgentResult(BaseModel):
     data: Optional[Dict[str, Any]] = None
     verification_result: Optional[str] = None
     reasoning: Optional[str] = None
+
+
+# New Schemas for listing verifications
+class VerificationSummary(BaseModel):
+    verification_id: str
+    user_id: Optional[str] = None
+    business_id: Optional[str] = None
+    status: str
+    result: Optional[str] = None
+    created_at: datetime
+    completed_at: Optional[datetime] = None
+
+
+class VerificationListResponse(BaseModel):
+    items: List[VerificationSummary]
+    total: int

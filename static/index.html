@@ -1,0 +1,487 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Verification System</title>
+    <link rel="stylesheet" href="/static/css/styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="app-container">
+        <nav class="sidebar">
+            <div class="sidebar-header">
+                <h2>Verification System</h2>
+            </div>
+            <ul class="sidebar-menu">
+                <li class="sidebar-item" data-page="dashboard">
+                    <a href="#dashboard"><i class="fas fa-tachometer-alt"></i> Dashboard</a>
+                </li>
+                <li class="sidebar-item" data-page="kyc-list">
+                    <a href="#kyc-list"><i class="fas fa-user-check"></i> KYC Verifications</a>
+                </li>
+                <li class="sidebar-item" data-page="kyb-list">
+                    <a href="#kyb-list"><i class="fas fa-building"></i> KYB Verifications</a>
+                </li>
+                <li class="sidebar-item" data-page="new-verification">
+                    <a href="#new-verification"><i class="fas fa-plus-circle"></i> New Verification</a>
+                </li>
+            </ul>
+            <div class="sidebar-footer">
+                <button id="logout-btn" class="btn-logout"><i class="fas fa-sign-out-alt"></i> Logout</button>
+            </div>
+        </nav>
+
+        <main class="content">
+            <header class="content-header">
+                <h1 id="page-title">Dashboard</h1>
+                <div class="user-info">
+                    <span id="user-email">user@example.com</span>
+                    <img src="/static/img/user-placeholder.png" alt="User" class="user-avatar">
+                </div>
+            </header>
+
+            <div class="content-body">
+                <!-- Login Page -->
+                <section id="login-page" class="page">
+                    <div class="login-container">
+                        <div class="login-header">
+                            <h2>Verification System</h2>
+                            <p>Sign in to your account</p>
+                        </div>
+                        <form id="login-form" class="login-form">
+                            <div class="form-group">
+                                <label for="email">Email</label>
+                                <input type="email" id="email" name="email" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="password">Password</label>
+                                <input type="password" id="password" name="password" required>
+                            </div>
+                            <div class="form-group">
+                                <button type="submit" class="btn-primary">Login</button>
+                            </div>
+                            <div id="login-error" class="error-message hidden"></div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- Dashboard Page -->
+                <section id="dashboard-page" class="page hidden">
+                    <div class="dashboard-stats">
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-user-check"></i></div>
+                            <div class="stat-content">
+                                <h3>KYC Verifications</h3>
+                                <p id="kyc-count">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-building"></i></div>
+                            <div class="stat-content">
+                                <h3>KYB Verifications</h3>
+                                <p id="kyb-count">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+                            <div class="stat-content">
+                                <h3>Completed</h3>
+                                <p id="completed-count">0</p>
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-icon"><i class="fas fa-clock"></i></div>
+                            <div class="stat-content">
+                                <h3>Pending</h3>
+                                <p id="pending-count">0</p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="dashboard-charts">
+                        <div class="chart-container">
+                            <h3>Recent Verifications</h3>
+                            <div class="recent-verifications">
+                                <table id="recent-verifications-table">
+                                    <thead>
+                                        <tr>
+                                            <th>ID</th>
+                                            <th>Type</th>
+                                            <th>Status</th>
+                                            <th>Date</th>
+                                            <th>Actions</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody id="recent-verifications-body">
+                                        <!-- Populated by JavaScript -->
+                                    </tbody>
+                                </table>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- KYC List Page -->
+                <section id="kyc-list-page" class="page hidden">
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label for="kyc-status-filter">Status:</label>
+                            <select id="kyc-status-filter">
+                                <option value="">All</option>
+                                <option value="pending">Pending</option>
+                                <option value="processing">Processing</option>
+                                <option value="completed">Completed</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                        </div>
+                        <div class="search-group">
+                            <input type="text" id="kyc-search" placeholder="Search by ID or Name">
+                            <button id="kyc-search-btn"><i class="fas fa-search"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="kyc-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>User ID</th>
+                                    <th>Status</th>
+                                    <th>Result</th>
+                                    <th>Created</th>
+                                    <th>Completed</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="kyc-table-body">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination">
+                        <button id="kyc-prev-page" class="btn-pagination"><i class="fas fa-chevron-left"></i> Previous</button>
+                        <span id="kyc-page-info">Page 1 of 1</span>
+                        <button id="kyc-next-page" class="btn-pagination">Next <i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </section>
+
+                <!-- KYB List Page -->
+                <section id="kyb-list-page" class="page hidden">
+                    <div class="filters">
+                        <div class="filter-group">
+                            <label for="kyb-status-filter">Status:</label>
+                            <select id="kyb-status-filter">
+                                <option value="">All</option>
+                                <option value="pending">Pending</option>
+                                <option value="processing">Processing</option>
+                                <option value="completed">Completed</option>
+                                <option value="failed">Failed</option>
+                            </select>
+                        </div>
+                        <div class="search-group">
+                            <input type="text" id="kyb-search" placeholder="Search by ID or Business Name">
+                            <button id="kyb-search-btn"><i class="fas fa-search"></i></button>
+                        </div>
+                    </div>
+
+                    <div class="table-container">
+                        <table id="kyb-table">
+                            <thead>
+                                <tr>
+                                    <th>ID</th>
+                                    <th>Business ID</th>
+                                    <th>Status</th>
+                                    <th>Result</th>
+                                    <th>Created</th>
+                                    <th>Completed</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="kyb-table-body">
+                                <!-- Populated by JavaScript -->
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="pagination">
+                        <button id="kyb-prev-page" class="btn-pagination"><i class="fas fa-chevron-left"></i> Previous</button>
+                        <span id="kyb-page-info">Page 1 of 1</span>
+                        <button id="kyb-next-page" class="btn-pagination">Next <i class="fas fa-chevron-right"></i></button>
+                    </div>
+                </section>
+
+                <!-- New Verification Page -->
+                <section id="new-verification-page" class="page hidden">
+                    <div class="verification-types">
+                        <div class="verification-type-card" id="new-kyc">
+                            <div class="card-icon"><i class="fas fa-user-check"></i></div>
+                            <h3>New KYC Verification</h3>
+                            <p>Verify an individual customer's identity</p>
+                        </div>
+                        <div class="verification-type-card" id="new-kyb">
+                            <div class="card-icon"><i class="fas fa-building"></i></div>
+                            <h3>New KYB Verification</h3>
+                            <p>Verify a business entity and its UBOs</p>
+                        </div>
+                    </div>
+
+                    <div id="new-kyc-form-container" class="form-container hidden">
+                        <h3>New KYC Verification</h3>
+                        <form id="new-kyc-form">
+                            <div class="form-group">
+                                <label for="kyc-user-id">User ID*</label>
+                                <input type="text" id="kyc-user-id" name="user_id" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="kyc-additional-data">Additional Data (JSON)</label>
+                                <textarea id="kyc-additional-data" name="additional_data" rows="5" placeholder='{"key": "value"}'></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn-secondary" id="cancel-kyc">Cancel</button>
+                                <button type="submit" class="btn-primary">Start Verification</button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <div id="new-kyb-form-container" class="form-container hidden">
+                        <h3>New KYB Verification</h3>
+                        <form id="new-kyb-form">
+                            <div class="form-group">
+                                <label for="kyb-business-id">Business ID*</label>
+                                <input type="text" id="kyb-business-id" name="business_id" required>
+                            </div>
+                            <div class="form-group">
+                                <label for="kyb-additional-data">Additional Data (JSON)</label>
+                                <textarea id="kyb-additional-data" name="additional_data" rows="5" placeholder='{"key": "value"}'></textarea>
+                            </div>
+                            <div class="form-actions">
+                                <button type="button" class="btn-secondary" id="cancel-kyb">Cancel</button>
+                                <button type="submit" class="btn-primary">Start Verification</button>
+                            </div>
+                        </form>
+                    </div>
+                </section>
+
+                <!-- KYC Detail Page -->
+                <section id="kyc-detail-page" class="page hidden">
+                    <div class="detail-header">
+                        <button id="back-to-kyc-list" class="btn-back"><i class="fas fa-arrow-left"></i> Back to List</button>
+                        <h2>KYC Verification Details</h2>
+                        <div class="detail-status">
+                            <span id="kyc-detail-status-badge" class="status-badge">Status</span>
+                            <span id="kyc-detail-result-badge" class="result-badge">Result</span>
+                        </div>
+                    </div>
+
+                    <div class="detail-info">
+                        <div class="info-item">
+                            <label>Verification ID:</label>
+                            <span id="kyc-detail-id"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>User ID:</label>
+                            <span id="kyc-detail-user-id"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Created:</label>
+                            <span id="kyc-detail-created"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Completed:</label>
+                            <span id="kyc-detail-completed"></span>
+                        </div>
+                    </div>
+
+                    <div class="detail-summary">
+                        <h3>Summary</h3>
+                        <p id="kyc-detail-summary"></p>
+                    </div>
+
+                    <div class="detail-checks">
+                        <h3>Verification Checks</h3>
+                        
+                        <div class="check-section">
+                            <h4>Initial Diligence</h4>
+                            <div class="check-list" id="kyc-initial-diligence-checks">
+                                <!-- Initial Diligence Checks (populated by JavaScript) -->
+                            </div>
+                        </div>
+                        
+                        <div class="check-section">
+                            <h4>Gov Id Verification</h4>
+                            <div class="check-list" id="kyc-gov-id-checks">
+                                <!-- Gov Id Verification Checks (populated by JavaScript) -->
+                            </div>
+                        </div>
+                        
+                        <div class="check-section">
+                            <h4>Additional Checks</h4>
+                            <div class="check-list" id="kyc-additional-checks">
+                                <!-- Other Checks (populated by JavaScript) -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- KYB Detail Page -->
+                <section id="kyb-detail-page" class="page hidden">
+                    <div class="detail-header">
+                        <button id="back-to-kyb-list" class="btn-back"><i class="fas fa-arrow-left"></i> Back to List</button>
+                        <h2>KYB Verification Details</h2>
+                        <div class="detail-status">
+                            <span id="kyb-detail-status-badge" class="status-badge">Status</span>
+                            <span id="kyb-detail-result-badge" class="result-badge">Result</span>
+                        </div>
+                    </div>
+
+                    <div class="detail-info">
+                        <div class="info-item">
+                            <label>Verification ID:</label>
+                            <span id="kyb-detail-id"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Business ID:</label>
+                            <span id="kyb-detail-business-id"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Created:</label>
+                            <span id="kyb-detail-created"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Completed:</label>
+                            <span id="kyb-detail-completed"></span>
+                        </div>
+                    </div>
+
+                    <div class="detail-summary">
+                        <h3>Summary</h3>
+                        <p id="kyb-detail-summary"></p>
+                    </div>
+
+                    <div class="detail-checks">
+                        <h3>Verification Checks</h3>
+                        
+                        <div class="check-section">
+                            <h4>Normal Diligence</h4>
+                            <div class="check-list" id="kyb-normal-diligence-checks">
+                                <!-- Normal Diligence Checks (populated by JavaScript) -->
+                            </div>
+                        </div>
+                        
+                        <div class="check-section">
+                            <h4>IRS Match</h4>
+                            <div class="check-list" id="kyb-irs-match-checks">
+                                <!-- IRS Match Checks (populated by JavaScript) -->
+                            </div>
+                        </div>
+                        
+                        <div class="check-section">
+                            <h4>SOS Filings</h4>
+                            <div class="check-list" id="kyb-sos-filings-checks">
+                                <!-- SOS Filings Checks (populated by JavaScript) -->
+                            </div>
+                        </div>
+                        
+                        <div class="check-section">
+                            <h4>Additional Checks</h4>
+                            <div class="check-list" id="kyb-additional-checks">
+                                <!-- Other Checks (populated by JavaScript) -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="detail-ubos">
+                        <h3>Ultimate Beneficial Owners (UBOs)</h3>
+                        <div class="ubo-list" id="kyb-ubo-list">
+                            <!-- UBO List (populated by JavaScript) -->
+                        </div>
+                    </div>
+                </section>
+
+                <!-- UBO Detail Page -->
+                <section id="ubo-detail-page" class="page hidden">
+                    <div class="detail-header">
+                        <button id="back-to-kyb-detail" class="btn-back"><i class="fas fa-arrow-left"></i> Back to Business</button>
+                        <h2>UBO Verification Details</h2>
+                        <div class="detail-status">
+                            <span id="ubo-detail-status-badge" class="status-badge">Status</span>
+                            <span id="ubo-detail-result-badge" class="result-badge">Result</span>
+                        </div>
+                    </div>
+
+                    <div class="detail-info">
+                        <div class="info-item">
+                            <label>Verification ID:</label>
+                            <span id="ubo-detail-id"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>User ID:</label>
+                            <span id="ubo-detail-user-id"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Created:</label>
+                            <span id="ubo-detail-created"></span>
+                        </div>
+                        <div class="info-item">
+                            <label>Completed:</label>
+                            <span id="ubo-detail-completed"></span>
+                        </div>
+                    </div>
+
+                    <div class="detail-summary">
+                        <h3>Summary</h3>
+                        <p id="ubo-detail-summary"></p>
+                    </div>
+
+                    <div class="detail-checks">
+                        <h3>Verification Checks</h3>
+                        
+                        <div class="check-section">
+                            <h4>Initial Diligence</h4>
+                            <div class="check-list" id="ubo-initial-diligence-checks">
+                                <!-- Initial Diligence Checks (populated by JavaScript) -->
+                            </div>
+                        </div>
+                        
+                        <div class="check-section">
+                            <h4>Gov Id Verification</h4>
+                            <div class="check-list" id="ubo-gov-id-checks">
+                                <!-- Gov Id Verification Checks (populated by JavaScript) -->
+                            </div>
+                        </div>
+                        
+                        <div class="check-section">
+                            <h4>Additional Checks</h4>
+                            <div class="check-list" id="ubo-additional-checks">
+                                <!-- Other Checks (populated by JavaScript) -->
+                            </div>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
+
+    <!-- Modals -->
+    <div id="modal-overlay" class="modal-overlay hidden">
+        <div id="modal" class="modal">
+            <div class="modal-header">
+                <h3 id="modal-title">Modal Title</h3>
+                <button id="modal-close" class="modal-close"><i class="fas fa-times"></i></button>
+            </div>
+            <div id="modal-content" class="modal-content"></div>
+            <div class="modal-footer">
+                <button id="modal-cancel" class="btn-secondary">Cancel</button>
+                <button id="modal-confirm" class="btn-primary">Confirm</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast notifications -->
+    <div id="toast-container" class="toast-container"></div>
+
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
