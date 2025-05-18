@@ -15,18 +15,30 @@ class NormalDiligenceAgent(BaseAgent):
             Dict containing verification results
         """
         try:
+
+
             # Fetch data from verification_data table
             verification_data = await self.get_verification_data()
+
+
+
+
             business_data = verification_data.get("business", {}).get("business_data", {})
+
             
             # Get business type and industry data
             business_type = business_data.get("business_type", "")
             industry_type = business_data.get("industry_type", "")
             
             # Get external data
-            external_business_data = await self.db_client.get_external_business_data(
-                business_data.get("business_id")
+            from app.integrations.external_database import external_db
+
+
+
+            external_business_data = await external_db.get_business_data(
+                business_data.get("business_id") or business_data.get("id")
             )
+
             
             # Get open corporates data
             open_corporates_data = await self.sift_client.get_open_corporates_data(

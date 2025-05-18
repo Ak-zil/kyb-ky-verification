@@ -120,7 +120,7 @@ async def start_kyc_verification(
 @router.post("/business", response_model=VerificationResponse)
 async def start_business_verification(
     request: BusinessVerificationRequest,
-    api_key: str = Header(..., description="API Key"),
+    api_key: str = Depends(get_api_key),
     verification_service: VerificationWorkflowService = Depends(get_verification_service)
 ) -> Any:
     """
@@ -145,9 +145,6 @@ async def start_business_verification(
     """
     try:
         logger.info(f"Starting KYB verification for business_id {request.business_id}")
-        
-        # Validate API key
-        await get_api_key(api_key)
         
         # Validate request
         validate_verification_request(request.dict(), "business")
@@ -187,7 +184,7 @@ async def start_business_verification(
 @router.get("/status/{verification_id}", response_model=VerificationStatusResponse)
 async def get_verification_status(
     verification_id: str,
-    api_key: str = Header(..., description="API Key"),
+    api_key: str = Depends(get_api_key),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
@@ -209,8 +206,6 @@ async def get_verification_status(
     try:
         logger.info(f"Getting status for verification_id {verification_id}")
         
-        # Validate API key
-        await get_api_key(api_key)
         
         # Get verification status
         db_client = Database(db)
@@ -246,7 +241,7 @@ async def get_verification_report(
     business_id: Optional[str] = None,
     user_id: Optional[str] = None,
     verification_id: Optional[str] = None,
-    api_key: str = Header(..., description="API Key"),
+    api_key: str = Depends(get_api_key),
     db: AsyncSession = Depends(get_db)
 ) -> Any:
     """
@@ -270,9 +265,6 @@ async def get_verification_report(
     """
     try:
         logger.info(f"Getting verification report for business_id={business_id}, user_id={user_id}, verification_id={verification_id}")
-        
-        # Validate API key
-        await get_api_key(api_key)
         
         if not business_id and not user_id and not verification_id:
             logger.warning("No identifiers provided for verification report")
@@ -348,23 +340,43 @@ async def _build_business_verification_report(db_client: Database, verification:
     
     # Get final result
     final_result = next((r for r in agent_results 
-                        if r.agent_type == "BusinessResultCompilationAgent"), None)
+                       if r.agent_type == "BusinessResultCompilationAgent"), None)
+    
+    # Convert agent_results to dictionaries for report
+    verification_checks = []
+    for result in agent_results:
+        if result.status == "success" and hasattr(result, "checks") and result.checks:
+            for check in result.checks:
+                verification_checks.append({
+                    "agent_type": result.agent_type,
+                    "check_name": check.get("name"),
+                    "status": check.get("status"),
+                    "details": check.get("details")
+                })
     
     # Compile UBO reports
     ubo_reports = []
     for ubo in ubo_verifications:
         ubo_verification = await db_client.get_verification(ubo.ubo_verification_id)
-        ubo_agent_results = await db_client.get_verification_agent_results(ubo.ubo_verification_id)
-        ubo_final_result = next((r for r in ubo_agent_results 
-                                if r.agent_type == "ResultCompilationAgent"), None)
+        
+        # Get overall status from verification record
+        ubo_status = ubo_verification.status if ubo_verification else "unknown"
+        ubo_result = ubo_verification.result if ubo_verification else None
+        ubo_reason = ubo_verification.reason if ubo_verification else None
         
         ubo_reports.append({
             "user_id": ubo.ubo_user_id,
             "verification_id": ubo.ubo_verification_id,
-            "status": ubo_verification.status if ubo_verification else None,
-            "result": ubo_final_result.verification_result if ubo_final_result else None,
-            "reason": ubo_final_result.details if ubo_final_result else None
+            "status": ubo_status,
+            "result": ubo_result,
+            "reason": ubo_reason
         })
+    
+    # Get overall status - this might be stored in verification.result
+    overall_status = verification.result if verification and verification.result else "unknown"
+    
+    # Get summary from final_result details
+    summary = final_result.details if final_result else None
     
     return {
         "verification_id": verification.verification_id,
@@ -372,18 +384,9 @@ async def _build_business_verification_report(db_client: Database, verification:
         "created_at": verification.created_at,
         "completed_at": verification.completed_at,
         "results": {
-            "overall_status": final_result.verification_result if final_result else None,
-            "verification_checks": [
-                {
-                    "agent_type": result.agent_type,
-                    "check_name": check.get("name"),
-                    "status": check.get("status"),
-                    "details": check.get("details")
-                }
-                for result in agent_results if result.status == "success"
-                for check in result.checks or []
-            ],
-            "summary": final_result.details if final_result else None,
+            "overall_status": overall_status,
+            "verification_checks": verification_checks,
+            "summary": summary,
             "ubo_reports": ubo_reports
         }
     }
@@ -405,7 +408,25 @@ async def _build_user_verification_report(db_client: Database, verification: Any
     
     # Get final result
     final_result = next((r for r in agent_results 
-                        if r.agent_type == "ResultCompilationAgent"), None)
+                       if r.agent_type == "ResultCompilationAgent"), None)
+    
+    # Convert agent_results to dictionaries for report
+    verification_checks = []
+    for result in agent_results:
+        if result.status == "success" and hasattr(result, "checks") and result.checks:
+            for check in result.checks:
+                verification_checks.append({
+                    "agent_type": result.agent_type,
+                    "check_name": check.get("name"),
+                    "status": check.get("status"),
+                    "details": check.get("details")
+                })
+    
+    # Get overall status - this might be stored in verification.result
+    overall_status = verification.result if verification and verification.result else "unknown"
+    
+    # Get summary from final_result details
+    summary = final_result.details if final_result else None
     
     return {
         "verification_id": verification.verification_id,
@@ -413,17 +434,8 @@ async def _build_user_verification_report(db_client: Database, verification: Any
         "created_at": verification.created_at,
         "completed_at": verification.completed_at,
         "results": {
-            "overall_status": final_result.verification_result if final_result else None,
-            "verification_checks": [
-                {
-                    "agent_type": result.agent_type,
-                    "check_name": check.get("name"),
-                    "status": check.get("status"),
-                    "details": check.get("details")
-                }
-                for result in agent_results if result.status == "success"
-                for check in result.checks or []
-            ],
-            "summary": final_result.details if final_result else None
+            "overall_status": overall_status,
+            "verification_checks": verification_checks,
+            "summary": summary
         }
     }

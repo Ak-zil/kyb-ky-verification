@@ -17,18 +17,30 @@ class ResultCompilationAgent(BaseAgent):
         try:
             # Fetch all agent results for this verification
             agent_results = await self.db_client.get_verification_agent_results(self.verification_id)
+
+
+            # Convert SQLAlchemy models to dictionaries
+            agent_results_dicts = []
+            for result in agent_results:
+                result_dict = {
+                    "agent_type": result.agent_type,
+                    "status": result.status,
+                    "details": result.details,
+                    "checks": result.checks if hasattr(result, 'checks') and result.checks else []
+                }
+                agent_results_dicts.append(result_dict)
             
             # Organize results by agent type
             organized_results = {}
             for result in agent_results:
-                agent_type = result.get("agent_type")
+                agent_type = result.agent_type
                 if agent_type not in organized_results:
                     organized_results[agent_type] = result
             
             # Check if any agents had errors
-            errors = [r for r in agent_results if r.get("status") == "error"]
+            errors = [r for r in agent_results if r.status == "error"]
             if errors:
-                error_agents = [e.get("agent_type") for e in errors]
+                error_agents = [e.agent_type for e in errors]
                 return {
                     "agent_type": "ResultCompilationAgent",
                     "status": "error",
@@ -40,7 +52,7 @@ class ResultCompilationAgent(BaseAgent):
             
             # Use LLM to analyze all results and make a final determination
             verification_analysis = await self.extract_data_with_llm(
-                data={"agent_results": agent_results},
+                data={"agent_results": agent_results_dicts},
                 prompt="""
                 You are a verification expert. Analyze the results from all verification agents and determine:
                 1. The overall verification result (passed/failed)
@@ -114,6 +126,17 @@ class BusinessResultCompilationAgent(BaseAgent):
             # Fetch all agent results for business verification
             business_agent_results = await self.db_client.get_verification_agent_results(self.verification_id)
             
+            # Convert SQLAlchemy models to dictionaries
+            business_agent_results_dicts = []
+            for result in business_agent_results:
+                result_dict = {
+                    "agent_type": result.agent_type,
+                    "status": result.status,
+                    "details": result.details,
+                    "checks": result.checks if result.checks else []
+                }
+                business_agent_results_dicts.append(result_dict)
+            
             # Fetch UBO verification results
             ubo_results = []
             for ubo_verification_id in self.ubo_verification_ids:
@@ -122,46 +145,38 @@ class BusinessResultCompilationAgent(BaseAgent):
                 
                 # Get final result
                 ubo_agent_results = await self.db_client.get_verification_agent_results(ubo_verification_id)
+                
+                # Find the ResultCompilationAgent result
                 ubo_final_result = next((r for r in ubo_agent_results 
-                                        if r.get("agent_type") == "ResultCompilationAgent"), None)
+                                    if r.agent_type == "ResultCompilationAgent"), None)
                 
                 ubo_results.append({
                     "verification_id": ubo_verification_id,
                     "status": verification.status if verification else "unknown",
-                    "result": ubo_final_result.get("verification_result") if ubo_final_result else None,
-                    "reasoning": ubo_final_result.get("reasoning") if ubo_final_result else None
+                    "result": ubo_final_result.verification_result if ubo_final_result else None,
+                    "reasoning": ubo_final_result.reasoning if ubo_final_result else None
                 })
             
-            # Organize business agent results by agent type
-            organized_results = {}
-            for result in business_agent_results:
-                agent_type = result.get("agent_type")
-                if agent_type not in organized_results:
-                    organized_results[agent_type] = result
-            
             # Check if any business agents had errors
-            business_errors = [r for r in business_agent_results if r.get("status") == "error"]
+            business_errors = [r for r in business_agent_results if r.status == "error"]
             if business_errors:
-                error_agents = [e.get("agent_type") for e in business_errors]
+                error_agents = [e.agent_type for e in business_errors]
                 return {
                     "agent_type": "BusinessResultCompilationAgent",
                     "status": "error",
                     "details": f"Errors occurred in business agents: {', '.join(error_agents)}",
                     "verification_result": "failed",
                     "reasoning": "Cannot complete business verification due to errors in processing",
-                    "business_agent_results": business_agent_results,
+                    "business_agent_results": business_agent_results_dicts,
                     "ubo_results": ubo_results
                 }
-            
-            # Check if any UBO verifications failed
-            failed_ubo_verifications = [r for r in ubo_results if r.get("result") == "failed"]
             
             # Use LLM to analyze all results and make a final determination
             verification_analysis = await self.extract_data_with_llm(
                 data={
-                    "business_agent_results": business_agent_results,
+                    "business_agent_results": business_agent_results_dicts,
                     "ubo_results": ubo_results,
-                    "failed_ubo_verifications": len(failed_ubo_verifications)
+                    "failed_ubo_verifications": len([r for r in ubo_results if r.get("result") == "failed"])
                 },
                 prompt="""
                 You are a business verification expert. Analyze the results from all business verification agents 
@@ -197,7 +212,7 @@ class BusinessResultCompilationAgent(BaseAgent):
                 "reasoning": reasoning,
                 "risk_factors": verification_analysis.get("risk_factors", []),
                 "confidence": verification_analysis.get("confidence", "medium"),
-                "business_agent_results": business_agent_results,
+                "business_agent_results": business_agent_results_dicts,
                 "ubo_results": ubo_results
             }
             
@@ -210,3 +225,6 @@ class BusinessResultCompilationAgent(BaseAgent):
                 "verification_result": "failed",
                 "reasoning": f"Error during compilation: {str(e)}"
             }
+        
+
+

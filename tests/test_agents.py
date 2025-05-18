@@ -69,7 +69,7 @@ async def test_base_agent_extract_data_with_llm():
     mock_bedrock_client.extract_structured_data.assert_called_once_with(
         data=data,
         extraction_instructions=prompt,
-        model_id="anthropic.claude-3-sonnet-20240229-v1:0"
+        model_id="us.anthropic.claude-3-7-sonnet-20250219-v1:0"
     )
 
 

@@ -19,7 +19,7 @@ class PersonaClient:
     def __init__(self, api_key: Optional[str] = None):
         """Initialize Persona client"""
         self.api_key = api_key or settings.PERSONA_API_KEY
-        self.base_url = "https://api.withpersona.com/v1"
+        self.base_url = "https://api.withpersona.com/api/v1"
         self.logger = logger
         self.http_client = httpx.AsyncClient()
 

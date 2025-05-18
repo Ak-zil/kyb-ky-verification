@@ -6,6 +6,7 @@ from app.integrations.database import Database
 from app.integrations.external_database import external_db
 from app.integrations.persona import PersonaClient
 from app.integrations.sift import SiftClient
+from app.utils.json_encoder import convert_dates_to_strings
 from app.utils.llm import BedrockClient
 from app.utils.logging import get_logger
 
@@ -99,6 +100,8 @@ class DataAcquisitionAgent(BaseAgent):
             persona_enquiry_id = await external_db.get_persona_inquiry_id(self.user_id)
             self.logger.info(f"Persona inquiry ID for user {self.user_id}: {persona_enquiry_id}")
             
+
+            
             # Fetch Sift scores from external database
             sift_data = await external_db.get_sift_scores(self.user_id)
             self.logger.info(f"Sift data fetched for user {self.user_id}")
@@ -186,6 +189,10 @@ class DataAcquisitionAgent(BaseAgent):
                 "business_data": business_data,
                 "ubos": ubo_data
             }
+            
+            # Convert dates to strings for JSON serialization
+            result["data"] = convert_dates_to_strings(result["data"])
+            
         except Exception as e:
             self.logger.error(f"Error acquiring business data: {str(e)}")
             # Still create basic business data even if error occurs
@@ -193,3 +200,6 @@ class DataAcquisitionAgent(BaseAgent):
                 "business_data": {"business_id": self.business_id},
                 "ubos": []
             }
+
+
+

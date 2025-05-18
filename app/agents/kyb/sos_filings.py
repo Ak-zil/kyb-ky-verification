@@ -19,7 +19,10 @@ class SosFilingsAgent(BaseAgent):
             # Fetch data from verification_data table
             verification_data = await self.get_verification_data()
             business_data = verification_data.get("business", {}).get("business_data", {})
-            external_business_data = await self.db_client.get_external_business_data(business_data.get("business_id"))
+            from app.integrations.external_database import external_db
+            external_business_data = await external_db.get_business_data(
+            business_data.get("business_id") or business_data.get("id")
+        )
             
             # Extract business registration information
             business_name = business_data.get("business_name", "")

@@ -53,7 +53,7 @@ def validate_business_id(business_id: str) -> bool:
         True if valid, False otherwise
     """
     # This is a placeholder - implement appropriate validation
-    if not business_id or len(business_id) < 3:
+    if not business_id:
         return False
     return True
 
@@ -69,7 +69,7 @@ def validate_user_id(user_id: str) -> bool:
         True if valid, False otherwise
     """
     # This is a placeholder - implement appropriate validation
-    if not user_id or len(user_id) < 3:
+    if not user_id:
         return False
     return True
 

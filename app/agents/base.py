@@ -6,6 +6,7 @@ from app.core.exceptions import AgentExecutionError
 from app.integrations.database import Database
 from app.integrations.persona import PersonaClient
 from app.integrations.sift import SiftClient
+from app.utils.json_encoder import convert_dates_to_strings
 from app.utils.llm import BedrockClient
 from app.utils.logging import get_logger
 
@@ -60,11 +61,11 @@ class BaseAgent:
             }
 
     async def extract_data_with_llm(
-        self, 
-        data: Dict[str, Any], 
-        prompt: str,
-        model_id: str = "anthropic.claude-3-sonnet-20240229-v1:0"
-    ) -> Dict[str, Any]:
+    self, 
+    data: Dict[str, Any], 
+    prompt: str,
+    # model_id: str = "anthropic.claude-3-sonnet-20240229-v1:0"
+) -> Dict[str, Any]:
         """
         Use Bedrock LLM to extract and analyze data
         
@@ -77,14 +78,17 @@ class BaseAgent:
             Dict containing extraction results
         """
         try:
+            # Convert dates to strings for JSON serialization
+            json_safe_data = convert_dates_to_strings(data)
+            
             # Format the prompt for the LLM
-            formatted_prompt = self._format_llm_prompt(data, prompt)
+            formatted_prompt = self._format_llm_prompt(json_safe_data, prompt)
             
             # Call Bedrock API
             response = await self.bedrock_client.extract_structured_data(
-                data=data,
+                data=json_safe_data,
                 extraction_instructions=prompt,
-                model_id=model_id
+                # model_id=model_id
             )
             
             return response

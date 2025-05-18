@@ -32,7 +32,7 @@ class BedrockClient:
     async def invoke_model(
         self, 
         prompt: str, 
-        model_id: str = "anthropic.claude-3-sonnet-20240229-v1:0",
+        model_id: str = "us.anthropic.claude-3-7-sonnet-20250219-v1:0",
         max_tokens: int = 4096,
         temperature: float = 0.1,
         top_p: float = 0.9,
@@ -86,7 +86,8 @@ class BedrockClient:
                     "temperature": temperature,
                     "top_p": top_p,
                 }
-            
+        
+
             response = self.client.invoke_model(
                 body=json.dumps(request_body),
                 modelId=model_id,
@@ -116,7 +117,7 @@ class BedrockClient:
         self, 
         data: Dict[str, Any], 
         extraction_instructions: str,
-        model_id: str = "anthropic.claude-3-sonnet-20240229-v1:0"
+        model_id: str = "us.anthropic.claude-3-7-sonnet-20250219-v1:0"
     ) -> Dict[str, Any]:
         """
         Extract structured data from unstructured input using LLM

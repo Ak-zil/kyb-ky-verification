@@ -9,6 +9,7 @@ from app.models.user import User, APIKey
 from app.models.verification import (
     Verification, VerificationData, VerificationResult, UboVerification
 )
+from app.utils.json_encoder import convert_dates_to_strings
 from app.utils.logging import get_logger
 
 logger = get_logger("database")
@@ -200,6 +201,8 @@ class Database:
             self.logger.error(f"Error updating verification status: {str(e)}")
             raise
 
+    from app.utils.json_encoder import convert_dates_to_strings
+
     async def store_verification_data(
         self, 
         verification_id: str, 
@@ -208,10 +211,13 @@ class Database:
     ) -> VerificationData:
         """Store verification data"""
         try:
+            # Convert dates to strings
+            json_safe_data = convert_dates_to_strings(data)
+            
             verification_data = VerificationData(
                 verification_id=verification_id,
                 data_type=data_type,
-                data=data
+                data=json_safe_data
             )
             self.session.add(verification_data)
             await self.session.commit()
@@ -243,10 +249,10 @@ class Database:
             raise
 
     async def store_agent_result(
-        self, 
-        verification_id: str, 
-        agent_result: Dict[str, Any]
-    ) -> VerificationResult:
+    self, 
+    verification_id: str, 
+    agent_result: Dict[str, Any]
+) -> VerificationResult:
         """Store agent verification result"""
         try:
             # Extract fields from agent result
@@ -256,6 +262,20 @@ class Database:
             
             # Store checks separately
             checks = agent_result.get("checks")
+            
+            # If this is a ResultCompilationAgent, also update the verification's overall result
+            if agent_type in ["ResultCompilationAgent", "BusinessResultCompilationAgent"]:
+                verification_result = agent_result.get("verification_result")
+                reasoning = agent_result.get("reasoning")
+                
+                if verification_result:
+                    # Update the verification record with the final result
+                    await self.update_verification_status(
+                        verification_id=verification_id,
+                        status="completed",
+                        result=verification_result,
+                        reason=reasoning
+                    )
             
             # Create result record
             verification_result = VerificationResult(

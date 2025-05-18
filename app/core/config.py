@@ -61,6 +61,7 @@ class Settings(BaseSettings):
     AWS_REGION: str = "us-west-2"
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
+    MODEL_ID: Optional[str] = None
 
     # External API keys
     PERSONA_API_KEY: Optional[str] = None
