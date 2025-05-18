@@ -26,7 +26,7 @@ COPY pyproject.toml poetry.lock* /app/
 
 # Configure poetry to not use a virtual environment
 RUN poetry config virtualenvs.create false \
-    && poetry install --no-interaction --no-ansi
+    && poetry install --no-interaction --no-ansi --no-root
 
 # Copy project files
 COPY . /app/

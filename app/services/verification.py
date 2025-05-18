@@ -82,7 +82,6 @@ class VerificationWorkflowService:
                     data_type="additional_data",
                     data=additional_data
                 )
-            
             # Start background task for verification
             self.background_tasks.add_task(
                 self._run_kyc_verification_workflow, 
@@ -156,12 +155,13 @@ class VerificationWorkflowService:
             user_id: ID of the user to verify
         """
         try:
+            self.logger.info("starting db update")
             # Update verification status to processing
             await self.db_client.update_verification_status(
                 verification_id=verification_id,
                 status="processing"
             )
-            
+            self.logger.info("end db update")
             # 1. Data Acquisition
             self.logger.info(f"Starting data acquisition for KYC verification {verification_id}")
             data_acquisition_agent = self.agent_factory.create_agent(

@@ -1,5 +1,6 @@
 import logging
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.sql import text
 
 from app.core.config import settings
 from app.core.security import get_password_hash
@@ -20,11 +21,14 @@ async def create_first_admin(db: AsyncSession) -> None:
     try:
         # Check if admin exists
         result = await db.execute(
-            "SELECT * FROM users WHERE email = :email",
+           text( "SELECT * FROM users WHERE email = :email"),
             {"email": settings.FIRST_ADMIN_EMAIL}
         )
         user = result.first()
-        
+        logger.info("user data")
+        for row in user:
+
+            logger.info(row)
         if not user:
             # Create admin user
             admin = User(

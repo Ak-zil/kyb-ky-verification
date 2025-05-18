@@ -337,3 +337,7 @@ class PersonaClient:
     async def close(self):
         """Close the HTTP client session"""
         await self.http_client.aclose()
+
+
+
+persona_client = PersonaClient()

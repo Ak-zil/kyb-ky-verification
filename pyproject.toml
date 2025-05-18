@@ -3,6 +3,9 @@ name = "verification-system"
 version = "0.1.0"
 description = "KYC/KYB verification automation system"
 authors = ["Your Name <your.email@example.com>"]
+packages = [
+    { include = "app" }
+]
 
 [tool.poetry.dependencies]
 python = "^3.9"

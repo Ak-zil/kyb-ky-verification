@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import List, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, status, Header
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.exceptions import NotFoundError
@@ -51,6 +51,10 @@ class APIKeyService:
                 "expires_at": data.expires_at,
                 "user_id": user_id
             }
+
+            if api_key_data["expires_at"] and api_key_data["expires_at"].tzinfo:
+                api_key_data["expires_at"] = api_key_data["expires_at"].replace(tzinfo=None)
+
             api_key = await self.db.create_api_key(api_key_data)
             
             return api_key
@@ -187,7 +191,7 @@ async def get_api_key_service(db: AsyncSession = Depends(get_db)) -> APIKeyServi
 
 
 async def get_api_key(
-    api_key: str,
+    api_key: str = Header(..., description="API Key"),
     api_key_service: APIKeyService = Depends(get_api_key_service)
 ) -> str:
     """

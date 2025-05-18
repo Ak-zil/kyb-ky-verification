@@ -173,10 +173,10 @@ class Database:
         """Update verification status"""
         try:
             # Get the verification
-            result = await self.session.execute(
+            query_result  = await self.session.execute(
                 select(Verification).where(Verification.verification_id == verification_id)
             )
-            verification = result.scalars().first()
+            verification = query_result.scalars().first()
             
             if not verification:
                 return None
@@ -190,7 +190,7 @@ class Database:
                 
             # If status is completed or failed, set completed_at
             if status in ["completed", "failed"]:
-                verification.completed_at = datetime.utcnow()
+                verification.completed_at = datetime.utcnow() # datetime.now(datetime.timezone.utc)
                 
             await self.session.commit()
             await self.session.refresh(verification)

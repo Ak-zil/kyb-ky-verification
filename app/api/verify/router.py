@@ -10,7 +10,7 @@ from app.schemas.verification import (
     KycVerificationRequest, BusinessVerificationRequest, 
     VerificationResponse, VerificationStatusResponse, VerificationReportResponse
 )
-from app.services.apikey import get_api_key
+from app.services.apikey import APIKeyService, get_api_key, get_api_key_service
 from app.services.verification import VerificationWorkflowService
 from app.services.agent_factory import AgentFactory
 from app.utils.llm import bedrock_client
@@ -54,7 +54,9 @@ def get_verification_service(
 @router.post("/kyc", response_model=VerificationResponse)
 async def start_kyc_verification(
     request: KycVerificationRequest,
-    api_key: str = Header(..., description="API Key"),
+    # api_key: str = Header(..., description="API Key"),
+    # api_key_service: APIKeyService = Depends(get_api_key_service),
+    api_key: str = Depends(get_api_key),
     verification_service: VerificationWorkflowService = Depends(get_verification_service)
 ) -> Any:
     """
@@ -78,7 +80,7 @@ async def start_kyc_verification(
         logger.info(f"Starting KYC verification for user_id {request.user_id}")
         
         # Validate API key
-        await get_api_key(api_key)
+        # await get_api_key(api_key)
         
         # Validate request
         validate_verification_request(request.dict(), "kyc")
