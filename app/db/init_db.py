@@ -12,23 +12,20 @@ logger = get_logger("init_db")
 
 
 async def create_first_admin(db: AsyncSession) -> None:
-    """
-    Create first admin user if not exists
-    
-    Args:
-        db: Database session
-    """
     try:
         # Check if admin exists
         result = await db.execute(
-           text( "SELECT * FROM users WHERE email = :email"),
+           text("SELECT * FROM users WHERE email = :email"),
             {"email": settings.FIRST_ADMIN_EMAIL}
         )
         user = result.first()
         logger.info("user data")
-        for row in user:
-
-            logger.info(row)
+        
+        # Add this check before iterating
+        if user:
+            for row in user:
+                logger.info(row)
+                
         if not user:
             # Create admin user
             admin = User(
