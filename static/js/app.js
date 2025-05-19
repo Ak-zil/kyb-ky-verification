@@ -239,6 +239,56 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     /**
+     * Function to update status badge classes
+     */
+    function updateStatusBadges() {
+        // Update all status badges
+        document.querySelectorAll('.status-badge').forEach(badge => {
+            const status = badge.textContent.toLowerCase().replace(/\s+/g, '_');
+            badge.classList.remove('pending', 'processing', 'completed', 'failed', 'not_applicable');
+            badge.classList.add(status);
+        });
+        
+        // Update all result badges
+        document.querySelectorAll('.result-badge').forEach(badge => {
+            const result = badge.textContent.toLowerCase();
+            badge.classList.remove('passed', 'failed');
+            badge.classList.add(result);
+        });
+        
+        // Update all check status badges
+        document.querySelectorAll('.check-status').forEach(badge => {
+            const status = badge.textContent.toLowerCase().replace(/\s+/g, '_');
+            badge.classList.remove('passed', 'failed', 'warning', 'not_applicable');
+            badge.classList.add(status);
+        });
+    }
+
+    /**
+     * Function to create a check item with appropriate styling
+     * @param {Object} check - Check object
+     * @returns {HTMLElement} Check item element
+     */
+    function createCheckItem(check) {
+        const checkItem = document.createElement('div');
+        checkItem.className = 'check-item';
+        
+        const checkStatus = document.createElement('span');
+        const status = check.status.toLowerCase().replace(/\s+/g, '_');
+        checkStatus.className = `check-status ${status}`;
+        checkStatus.textContent = check.status;
+        
+        const checkDetails = document.createElement('div');
+        checkDetails.className = 'check-details';
+        checkDetails.textContent = check.details || check.check_name;
+        
+        checkItem.appendChild(checkStatus);
+        checkItem.appendChild(checkDetails);
+        
+        return checkItem;
+    }
+
+    /**
      * Show the specified page and hide all others
      * @param {string} pageName - Name of the page to show
      */
@@ -276,6 +326,11 @@ document.addEventListener('DOMContentLoaded', function() {
             
             // Update current page
             state.currentPage = pageName;
+            
+            // If the page contains status badges, update them
+            if (document.querySelector('.status-badge') || document.querySelector('.result-badge')) {
+                updateStatusBadges();
+            }
         } else {
             console.error(`Page ${pageName}-page not found`);
         }
@@ -751,7 +806,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         row.innerHTML = `
                             <td>${item.verification_id.substring(0, 8)}...</td>
                             <td>${type}</td>
-                            <td><span class="status-badge ${item.status}">${item.status}</span></td>
+                            <td><span class="status-badge ${item.status.toLowerCase()}">${item.status}</span></td>
                             <td>${formatDate(item.created_at)}</td>
                             <td>
                                 <button class="btn-action view-btn" data-id="${item.verification_id}" data-type="${type.toLowerCase()}">
@@ -779,6 +834,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 }
             }
+            
+            // Update status badges
+            updateStatusBadges();
         } catch (error) {
             console.error('Dashboard data error:', error);
             showToast('Failed to load dashboard data', 'error');
@@ -828,8 +886,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         row.innerHTML = `
                             <td>${item.verification_id.substring(0, 8)}...</td>
                             <td>${item.user_id}</td>
-                            <td><span class="status-badge ${item.status}">${item.status}</span></td>
-                            <td>${item.result ? `<span class="result-badge ${item.result}">${item.result}</span>` : '-'}</td>
+                            <td><span class="status-badge ${item.status.toLowerCase()}">${item.status}</span></td>
+                            <td>${item.result ? `<span class="result-badge ${item.result.toLowerCase()}">${item.result}</span>` : '-'}</td>
                             <td>${formatDate(item.created_at)}</td>
                             <td>${item.completed_at ? formatDate(item.completed_at) : '-'}</td>
                             <td>
@@ -871,6 +929,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (nextBtn) {
                 nextBtn.disabled = !data.items.length || data.items.length < 10;
             }
+            
+            // Update status badges
+            updateStatusBadges();
         } catch (error) {
             console.error('KYC list error:', error);
             showToast('Failed to load KYC list', 'error');
@@ -920,8 +981,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         row.innerHTML = `
                             <td>${item.verification_id.substring(0, 8)}...</td>
                             <td>${item.business_id}</td>
-                            <td><span class="status-badge ${item.status}">${item.status}</span></td>
-                            <td>${item.result ? `<span class="result-badge ${item.result}">${item.result}</span>` : '-'}</td>
+                            <td><span class="status-badge ${item.status.toLowerCase()}">${item.status}</span></td>
+                            <td>${item.result ? `<span class="result-badge ${item.result.toLowerCase()}">${item.result}</span>` : '-'}</td>
                             <td>${formatDate(item.created_at)}</td>
                             <td>${item.completed_at ? formatDate(item.completed_at) : '-'}</td>
                             <td>
@@ -963,6 +1024,9 @@ document.addEventListener('DOMContentLoaded', function() {
             if (nextBtn) {
                 nextBtn.disabled = !data.items.length || data.items.length < 10;
             }
+            
+            // Update status badges
+            updateStatusBadges();
         } catch (error) {
             console.error('KYB list error:', error);
             showToast('Failed to load KYB list', 'error');
@@ -1008,12 +1072,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update status badges
             const statusBadge = document.getElementById('kyc-detail-status-badge');
             statusBadge.textContent = data.status;
-            statusBadge.className = 'status-badge ' + data.status;
+            statusBadge.className = 'status-badge ' + data.status.toLowerCase();
             
             const resultBadge = document.getElementById('kyc-detail-result-badge');
             if (data.results.overall_status) {
                 resultBadge.textContent = data.results.overall_status;
-                resultBadge.className = 'result-badge ' + data.results.overall_status;
+                resultBadge.className = 'result-badge ' + data.results.overall_status.toLowerCase();
                 resultBadge.style.display = '';
             } else {
                 resultBadge.style.display = 'none';
@@ -1040,6 +1104,9 @@ document.addEventListener('DOMContentLoaded', function() {
             populateCheckList('kyc-initial-diligence-checks', initialDiligenceChecks);
             populateCheckList('kyc-gov-id-checks', govIdChecks);
             populateCheckList('kyc-additional-checks', additionalChecks);
+            
+            // Update status badges
+            updateStatusBadges();
         } catch (error) {
             console.error('KYC detail error:', error);
             showToast('Failed to load KYC details', 'error');
@@ -1087,12 +1154,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update status badges
             const statusBadge = document.getElementById('kyb-detail-status-badge');
             statusBadge.textContent = data.status;
-            statusBadge.className = 'status-badge ' + data.status;
+            statusBadge.className = 'status-badge ' + data.status.toLowerCase();
             
             const resultBadge = document.getElementById('kyb-detail-result-badge');
             if (data.results.overall_status) {
                 resultBadge.textContent = data.results.overall_status;
-                resultBadge.className = 'result-badge ' + data.results.overall_status;
+                resultBadge.className = 'result-badge ' + data.results.overall_status.toLowerCase();
                 resultBadge.style.display = '';
             } else {
                 resultBadge.style.display = 'none';
@@ -1140,8 +1207,8 @@ document.addEventListener('DOMContentLoaded', function() {
                         uboCard.innerHTML = `
                             <div class="ubo-header">
                                 <h4>UBO ID: ${ubo.user_id}</h4>
-                                <span class="status-badge ${ubo.status}">${ubo.status}</span>
-                                ${ubo.result ? `<span class="result-badge ${ubo.result}">${ubo.result}</span>` : ''}
+                                <span class="status-badge ${ubo.status.toLowerCase()}">${ubo.status}</span>
+                                ${ubo.result ? `<span class="result-badge ${ubo.result.toLowerCase()}">${ubo.result}</span>` : ''}
                             </div>
                             <div class="ubo-body">
                                 <p>${ubo.reason || 'No details available'}</p>
@@ -1165,6 +1232,9 @@ document.addEventListener('DOMContentLoaded', function() {
                     });
                 }
             }
+            
+            // Update status badges
+            updateStatusBadges();
         } catch (error) {
             console.error('KYB detail error:', error);
             showToast('Failed to load KYB details', 'error');
@@ -1210,12 +1280,12 @@ document.addEventListener('DOMContentLoaded', function() {
             // Update status badges
             const statusBadge = document.getElementById('ubo-detail-status-badge');
             statusBadge.textContent = data.status;
-            statusBadge.className = 'status-badge ' + data.status;
+            statusBadge.className = 'status-badge ' + data.status.toLowerCase();
             
             const resultBadge = document.getElementById('ubo-detail-result-badge');
             if (data.results.overall_status) {
                 resultBadge.textContent = data.results.overall_status;
-                resultBadge.className = 'result-badge ' + data.results.overall_status;
+                resultBadge.className = 'result-badge ' + data.results.overall_status.toLowerCase();
                 resultBadge.style.display = '';
             } else {
                 resultBadge.style.display = 'none';
@@ -1242,6 +1312,9 @@ document.addEventListener('DOMContentLoaded', function() {
             populateCheckList('ubo-initial-diligence-checks', initialDiligenceChecks);
             populateCheckList('ubo-gov-id-checks', govIdChecks);
             populateCheckList('ubo-additional-checks', additionalChecks);
+            
+            // Update status badges
+            updateStatusBadges();
         } catch (error) {
             console.error('UBO detail error:', error);
             showToast('Failed to load UBO details', 'error');
@@ -1257,29 +1330,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const container = document.getElementById(containerId);
         
         if (container) {
-            if (!checks || checks.length === 0) {
-                container.innerHTML = '<p>No checks found</p>';
-                return;
-            }
-            
             container.innerHTML = '';
             
-            checks.forEach(check => {
-                const checkItem = document.createElement('div');
-                checkItem.className = 'check-item';
-                
-                checkItem.innerHTML = `
-                    <div class="check-header">
-                        <h5>${check.check_name}</h5>
-                        <span class="check-status ${check.status}">${check.status}</span>
-                    </div>
-                    <div class="check-details">
-                        <p>${check.details || 'No details available'}</p>
-                    </div>
-                `;
-                
-                container.appendChild(checkItem);
-            });
+            if (!checks || checks.length === 0) {
+                container.innerHTML = '<p>No checks available</p>';
+            } else {
+                checks.forEach(check => {
+                    container.appendChild(createCheckItem(check));
+                });
+            }
         }
     }
 
