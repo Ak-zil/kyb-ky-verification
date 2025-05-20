@@ -79,12 +79,13 @@ class ExternalDatabase:
             self.pool = None
             self.logger.info("External database pool closed")
 
-    async def get_persona_inquiry_id(self, user_id: str) -> Optional[str]:
+    async def get_persona_inquiry_id(self, user_id: str, inquiry_type: str = "kyc") -> Optional[str]:
         """
         Get Persona inquiry ID for a user from persona_verification_requests table
         
         Args:
             user_id: User ID
+            inquiry_type: Type of inquiry ("kyc" or "kyb")
             
         Returns:
             Persona inquiry ID if found, None otherwise
@@ -97,11 +98,11 @@ class ExternalDatabase:
                     SELECT inquiry_id 
                     FROM persona_verification_requests 
                     WHERE created_for_id = %s
-                    AND inquiry_type = 'kyc'
+                    AND inquiry_type = %s
                     ORDER BY created_at DESC 
                     LIMIT 1
                     """,
-                    (user_id,)
+                    (user_id, inquiry_type)
                 )
                 result = await cursor.fetchone()
                 
@@ -110,9 +111,9 @@ class ExternalDatabase:
             if result and 'inquiry_id' in result:
                 return result['inquiry_id']
             return None
-            
+                
         except Exception as e:
-            self.logger.error(f"Error getting Persona inquiry ID for user {user_id}: {str(e)}")
+            self.logger.error(f"Error getting Persona inquiry ID for user {user_id} (type: {inquiry_type}): {str(e)}")
             return None
 
     async def get_business_data(self, business_id: str) -> Optional[Dict[str, Any]]:

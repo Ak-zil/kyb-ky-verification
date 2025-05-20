@@ -19,17 +19,59 @@ class ArticlesIncorporationAgent(BaseAgent):
             # Fetch data from verification_data table
             verification_data = await self.get_verification_data()
             business_data = verification_data.get("business", {}).get("business_data", {})
+            persona_data = verification_data.get("business", {}).get("persona_data", {})
+            business_details = verification_data.get("business", {}).get("business_details", {})
+            
+            # Extract business legal information from Persona data first, then fall back to other sources
+            # Get business name from Persona data
+            business_name = ""
+            business_type = ""
+            incorporation_date = ""
+            legal_structure = ""
+            
+            # First try to get data from the structured business_details
+            if business_details:
+                business_info = business_details.get("business_info", {})
+                business_name = business_info.get("business_name", "")
+                business_type = business_info.get("entity_type", "")
+                incorporation_date = business_info.get("business_formation_date", "")
+                legal_structure = business_info.get("entity_type", "")
+            
+            # If not found, try extracting directly from persona_data fields
+            if not business_name and persona_data:
+                data = persona_data.get("data", {})
+                attributes = data.get("attributes", {})
+                fields = attributes.get("fields", {})
+                
+                business_name_field = fields.get("business-name", {})
+                if business_name_field:
+                    business_name = business_name_field.get("value", "")
+                    
+                entity_type_field = fields.get("entity-type", {})
+                if entity_type_field:
+                    business_type = entity_type_field.get("value", "")
+                    legal_structure = business_type  # Often the same
+                    
+                formation_date_field = fields.get("business-formation-date", {})
+                if formation_date_field:
+                    incorporation_date = formation_date_field.get("value", "")
+            
+            # Last resort: Fall back to business_data fields
+            if not business_name:
+                business_name = business_data.get("business_name", "")
+            if not business_type:
+                business_type = business_data.get("business_type", "")
+            if not incorporation_date:
+                incorporation_date = business_data.get("incorporation_date", "")
+            if not legal_structure:
+                legal_structure = business_data.get("legal_structure", "")
+                
+            # Get additional external data if needed
             from app.integrations.external_database import external_db
             external_business_data = await external_db.get_business_data(
-            business_data.get("business_id") or business_data.get("id")
-        )
-            
-            # Extract business legal information
-            business_name = business_data.get("business_name", "")
-            business_type = business_data.get("business_type", "")
-            incorporation_date = external_business_data.get("incorporation_date", "")
-            legal_structure = external_business_data.get("legal_structure", "")
-            
+                business_data.get("business_id") or business_data.get("id")
+            )
+                
             # Process checks
             checks = []
             
@@ -97,7 +139,8 @@ class ArticlesIncorporationAgent(BaseAgent):
                 data={
                     "checks": checks,
                     "business_data": business_data,
-                    "external_business_data": external_business_data
+                    "external_business_data": external_business_data,
+                    "persona_data": persona_data
                 },
                 prompt="""
                 Analyze the articles of incorporation verification results and determine 

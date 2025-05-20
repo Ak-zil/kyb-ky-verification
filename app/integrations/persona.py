@@ -77,6 +77,7 @@ class PersonaClient:
                 'entity_type': fields.get('entity-type', {}).get('value'),
                 'business_industry': fields.get('business-industry', {}).get('value'),
                 'business_subindustry': fields.get(f"business-subindustry-{fields.get('business-industry', {}).get('value')}", {}).get('value'),
+                'registration_number': fields.get('business-registration-number', {}).get('value'),
                 
                 # Business address
                 'address': {

@@ -148,6 +148,30 @@ class DataAcquisitionAgent(BaseAgent):
                 # Create minimal business data
                 business_data = {"business_id": self.business_id}
                 
+            # Extract user_id from business data - this is the key step in our updated workflow
+            user_id = business_data.get("user_id")
+            if not user_id:
+                self.logger.warning(f"User ID not found in business data for business {self.business_id}")
+                user_id = ""
+            else:
+                self.logger.info(f"Found user_id {user_id} for business {self.business_id}")
+            
+            # Get Persona inquiry ID for KYB using the user_id
+            persona_inquiry_id = await external_db.get_persona_inquiry_id(user_id, "kyb")
+            self.logger.info(f"Persona KYB inquiry ID for user {user_id}: {persona_inquiry_id}")
+            
+            # Fetch Persona data if inquiry ID is available
+            persona_data = {}
+            business_details = {}
+            if persona_inquiry_id:
+                # Get complete inquiry data from Persona
+                persona_data = await self.persona_client.get_inquiry(persona_inquiry_id)
+                self.logger.info(f"Persona data fetched for KYB inquiry ID {persona_inquiry_id}")
+                
+                # Extract structured business details from the Persona data
+                business_details = await self.persona_client.get_business_details(persona_inquiry_id)
+                self.logger.info(f"Business details extracted from Persona data")
+            
             # Fetch UBO data from external database
             ubos = await external_db.get_business_owners(self.business_id)
             self.logger.info(f"Found {len(ubos)} UBOs for business {self.business_id}")
@@ -184,9 +208,11 @@ class DataAcquisitionAgent(BaseAgent):
                     }
                 })
             
-            # Store data in result
+            # Store data in result - include both business_data and persona_data
             result["data"]["business"] = {
                 "business_data": business_data,
+                "persona_data": persona_data,
+                "business_details": business_details,  # Add the extracted business details
                 "ubos": ubo_data
             }
             
@@ -198,6 +224,8 @@ class DataAcquisitionAgent(BaseAgent):
             # Still create basic business data even if error occurs
             result["data"]["business"] = {
                 "business_data": {"business_id": self.business_id},
+                "persona_data": {},
+                "business_details": {},
                 "ubos": []
             }
 

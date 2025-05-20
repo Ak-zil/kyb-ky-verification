@@ -18,21 +18,51 @@ class IrsMatchAgent(BaseAgent):
             # Fetch data from verification_data table
             verification_data = await self.get_verification_data()
             business_data = verification_data.get("business", {}).get("business_data", {})
+            persona_data = verification_data.get("business", {}).get("persona_data", {})
+            business_details = verification_data.get("business", {}).get("business_details", {})
+            
+            # Extract business information from Persona data first, then fall back to other sources
+            business_name = ""
+            tax_id = ""
+            
+            # First try to get data from the structured business_details
+            if business_details:
+                business_info = business_details.get("business_info", {})
+                business_name = business_info.get("business_name", "")
+                tax_id = business_info.get("business_tax_id", "")
+            
+            # If not found, try extracting directly from persona_data fields
+            if not business_name and persona_data:
+                data = persona_data.get("data", {})
+                attributes = data.get("attributes", {})
+                fields = attributes.get("fields", {})
+                
+                business_name_field = fields.get("business-name", {})
+                if business_name_field:
+                    business_name = business_name_field.get("value", "")
+                    
+                tax_id_field = fields.get("business-tax-identification-number", {})
+                if tax_id_field:
+                    tax_id = tax_id_field.get("value", "")
+            
+            # Last resort: Fall back to business_data fields
+            if not business_name:
+                business_name = business_data.get("business_name", "")
+            if not tax_id:
+                tax_id = business_data.get("tax_id", "")
+                
+            # Get additional external data if needed
             from app.integrations.external_database import external_db
             external_business_data = await external_db.get_business_data(
-            business_data.get("business_id") or business_data.get("id")
-        )
-            
-            # Extract business tax information
-            business_name = business_data.get("business_name", "")
-            tax_id = business_data.get("tax_id", "")
-            
+                business_data.get("business_id") or business_data.get("id")
+            )
+                
             # Process checks
             checks = []
             
             # 1. EIN/Tax ID Validation
             # Verify that the Tax ID is a valid format
-            tax_id_valid = tax_id and len(tax_id) == 9 and tax_id.isdigit()
+            tax_id_valid = tax_id and len(tax_id.replace("-", "")) == 9 and tax_id.replace("-", "").isdigit()
             
             checks.append({
                 "name": "Tax ID Format Validation",
@@ -77,7 +107,8 @@ class IrsMatchAgent(BaseAgent):
                 data={
                     "checks": checks,
                     "business_data": business_data,
-                    "external_business_data": external_business_data
+                    "external_business_data": external_business_data,
+                    "persona_data": persona_data
                 },
                 prompt="""
                 Analyze the IRS verification results and determine if there are any 
