@@ -1,5 +1,4 @@
-import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 
 from app.agents.base import BaseAgent
 from app.integrations.database import Database
@@ -141,51 +140,67 @@ class DataAcquisitionAgent(BaseAgent):
             result: Result dictionary to update
         """
         try:
-            # Fetch business data from external database
-            business_data = await external_db.get_business_data(self.business_id)
-            if not business_data:
+            # 1. Fetch business data from external database using business_id as id
+            user_kyb_record = await external_db.get_business_data(self.business_id)
+            if not user_kyb_record:
                 self.logger.warning(f"Business data not found for ID {self.business_id}")
                 # Create minimal business data
                 business_data = {"business_id": self.business_id}
-                
-            # Extract user_id from business data - this is the key step in our updated workflow
-            user_id = business_data.get("user_id")
-            if not user_id:
-                self.logger.warning(f"User ID not found in business data for business {self.business_id}")
-                user_id = ""
-            else:
-                self.logger.info(f"Found user_id {user_id} for business {self.business_id}")
+                result["data"]["business"] = {
+                    "business_data": business_data,
+                    "ubos": []
+                }
+                return
             
-            # Get Persona inquiry ID for KYB using the user_id
+            # 2. Get the user_id from the fetched business data
+            user_id = user_kyb_record.get("user_id")
+            if not user_id:
+                self.logger.warning(f"User ID not found in business record for business {self.business_id}")
+                business_data = {"business_id": self.business_id}
+                result["data"]["business"] = {
+                    "business_data": business_data,
+                    "ubos": []
+                }
+                return
+            
+            # 3. Fetch the Persona inquiry ID for KYB
             persona_inquiry_id = await external_db.get_persona_inquiry_id(user_id, "kyb")
             self.logger.info(f"Persona KYB inquiry ID for user {user_id}: {persona_inquiry_id}")
             
-            # Fetch Persona data if inquiry ID is available
-            persona_data = {}
+            # 4. Get business data from Persona
             business_details = {}
             if persona_inquiry_id:
-                # Get complete inquiry data from Persona
+                # Fetch the inquiry data from Persona
                 persona_data = await self.persona_client.get_inquiry(persona_inquiry_id)
                 self.logger.info(f"Persona data fetched for KYB inquiry ID {persona_inquiry_id}")
                 
-                # Extract structured business details from the Persona data
-                business_details = await self.persona_client.get_business_details(persona_inquiry_id)
-                self.logger.info(f"Business details extracted from Persona data")
+                # Extract business details from Persona inquiry
+                business_details = await self.persona_client.extract_business_info(persona_data)
+                self.logger.info("Business details extracted from Persona inquiry")
+                
+            # 5. Combine data from user_kyb_record and Persona
+            business_data = {
+                "business_id": self.business_id,
+                "user_id": user_id,
+                "persona_inquiry_id": persona_inquiry_id,
+                **user_kyb_record,
+                **business_details.get("business_info", {})
+            }
             
-            # Fetch UBO data from external database
+            # 6. Fetch UBO data from external database
             ubos = await external_db.get_business_owners(self.business_id)
             self.logger.info(f"Found {len(ubos)} UBOs for business {self.business_id}")
             
-            # For each UBO, fetch KYC data
+            # 7. For each UBO, fetch KYC data
             ubo_data = []
             for ubo in ubos:
-                ubo_user_id = str(ubo.get("created_for_id"))
+                ubo_user_id = ubo.get("created_for_id") # TODO: user_id
                 if not ubo_user_id:
                     self.logger.warning("UBO user ID not found in UBO record")
                     continue
                     
-                # Get Persona inquiry ID for UBO
-                owner_inquiry_id = ubo.get("owner_inquiry_id")
+                # Get Persona inquiry ID for UBO (KYC)
+                owner_inquiry_id = await external_db.get_persona_inquiry_id(ubo_user_id, "kyc")
                 
                 # Get Sift scores for UBO
                 ubo_sift_data = await external_db.get_sift_scores(ubo_user_id)
@@ -201,18 +216,17 @@ class DataAcquisitionAgent(BaseAgent):
                     "kyc_data": {
                         "user_data": {
                             "user_id": ubo_user_id,
-                            "persona_enquiry_id": owner_inquiry_id
+                            "persona_inquiry_id": owner_inquiry_id
                         },
                         "persona_data": ubo_persona_data,
                         "sift_data": ubo_sift_data or {}
                     }
                 })
             
-            # Store data in result - include both business_data and persona_data
+            # 8. Store data in result
             result["data"]["business"] = {
                 "business_data": business_data,
-                "persona_data": persona_data,
-                "business_details": business_details,  # Add the extracted business details
+                "persona_data": persona_data if 'persona_data' in locals() else {},
                 "ubos": ubo_data
             }
             
@@ -224,8 +238,6 @@ class DataAcquisitionAgent(BaseAgent):
             # Still create basic business data even if error occurs
             result["data"]["business"] = {
                 "business_data": {"business_id": self.business_id},
-                "persona_data": {},
-                "business_details": {},
                 "ubos": []
             }
 

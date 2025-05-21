@@ -316,7 +316,8 @@ class VerificationWorkflowService:
             # Start KYC verification for each UBO
             ubo_verification_ids = []
             for ubo in ubos:
-                ubo_user_id = ubo.get("ubo_info", {}).get("user_id")
+                self.logger.info(f"ubo info {ubo}")
+                ubo_user_id = ubo.get("ubo_info", {}).get("created_for_id") # TODO: user_id
                 if ubo_user_id:
                     self.logger.info(f"Starting KYC verification for UBO {ubo_user_id}")
                     
@@ -328,7 +329,7 @@ class VerificationWorkflowService:
                     }
                     
                     ubo_verification_id = await self.start_kyc_verification(
-                        user_id=ubo_user_id,
+                        user_id=str(ubo_user_id),
                         parent_verification_id=verification_id,
                         additional_data=ubo_additional_data
                     )

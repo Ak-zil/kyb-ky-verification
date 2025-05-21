@@ -62,6 +62,7 @@ class Settings(BaseSettings):
     AWS_ACCESS_KEY_ID: Optional[str] = None
     AWS_SECRET_ACCESS_KEY: Optional[str] = None
     MODEL_ID: Optional[str] = None
+    AWS_S3_BUCKET: str = "verification-system-documents"
 
     # External API keys
     PERSONA_API_KEY: Optional[str] = None

@@ -8,12 +8,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONPATH=/app
 
 # Install system dependencies, including MySQL client
+# Add this to your apt-get install line
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     libpq-dev \
     default-libmysqlclient-dev \
     pkg-config \
+    # Add these for PDF processing
+    poppler-utils \
+    poppler-data \
+    # Add this for python-magic
+    libmagic-dev \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
 
