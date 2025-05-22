@@ -371,7 +371,7 @@ class PersonaClient:
                     # Initialize document info
                     document = {
                         'id': doc_id,
-                        'name': attributes.get('name', 'Unknown Document'),
+                        'name': attributes.get('kind', 'Unknown Document'),
                         'status': attributes.get('status'),
                         'created_at': attributes.get('created-at'),
                     }
