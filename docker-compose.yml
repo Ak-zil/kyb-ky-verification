@@ -16,3 +16,39 @@ services:
       - PROJECT_NAME=${PROJECT_NAME:-Verification System}
       - BACKEND_CORS_ORIGINS=${BACKEND_CORS_ORIGINS:-["http://localhost:8000","http://localhost:3000"]}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: arq app.workers.arq_config.WorkerSettings
+    volumes:
+      - ./:/app
+    env_file:
+      - .env
+    environment:
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      redis:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+
+volumes:
+  redis_data:

@@ -1,11 +1,12 @@
+import asyncio
 import base64
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, Optional
 import json
-import io
 import os
 import tempfile
 import fitz  # PyMuPDF
 import magic  # For MIME type detection
+from concurrent.futures import ThreadPoolExecutor
 
 from app.utils.llm import BedrockClient
 from app.utils.logging import get_logger
@@ -15,11 +16,12 @@ logger = get_logger("ocr")
 class OCRProcessor:
     """OCR processor using Amazon Bedrock Claude for document text extraction and classification"""
     
-    def __init__(self, bedrock_client: Optional[BedrockClient] = None):
+    def __init__(self, bedrock_client: Optional[BedrockClient] = None, max_workers: int = 4):
         """Initialize OCR processor"""
         from app.utils.llm import bedrock_client as default_bedrock_client
         self.bedrock_client = bedrock_client or default_bedrock_client
         self.logger = logger
+        self.executor = ThreadPoolExecutor(max_workers=max_workers)
     
     async def process_document(self, document_bytes: bytes) -> Dict[str, Any]:
         """
@@ -32,58 +34,21 @@ class OCRProcessor:
             Dict containing document classification and extracted data
         """
         try:
-            # Detect MIME type
-            mime = magic.Magic(mime=True)
-            mime_type = mime.from_buffer(document_bytes)
-            
+            # 1. Detect MIME type (CPU-intensive) - run in executor
+            mime_type = await self._detect_mime_type_async(document_bytes)
             self.logger.info(f"Detected MIME type: {mime_type}")
             
-            # Initialize variables
-            images = []
+            # 2. Convert document to images (CPU-intensive) - run in executor
+            images = await self._convert_document_to_images_async(document_bytes, mime_type)
             
-            # Handle PDFs - convert to images
-            if mime_type == 'application/pdf':
-                self.logger.info("Converting PDF to images")
-                
-                # Create a temporary file to save the PDF
-                with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
-                    temp_pdf.write(document_bytes)
-                    pdf_path = temp_pdf.name
-                
-                try:
-                    # Open PDF with PyMuPDF
-                    pdf_document = fitz.open(pdf_path)
-                    page_count = len(pdf_document)
-                    
-                    # Convert each page to an image
-                    for page_num in range(min(page_count, 3)):  # Limit to first 3 pages
-                        page = pdf_document.load_page(page_num)
-                        pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))  # Higher resolution
-                        img_bytes = pix.tobytes("png")
-                        images.append(img_bytes)
-                    
-                    pdf_document.close()
-                    
-                except Exception as pdf_error:
-                    self.logger.error(f"Error converting PDF: {pdf_error}")
-                    raise
-                finally:
-                    # Clean up the temporary file
-                    if os.path.exists(pdf_path):
-                        os.unlink(pdf_path)
-                
-                if not images:
-                    self.logger.error("Failed to extract images from PDF")
-                    raise ValueError("Could not extract images from PDF")
-            else:
-                # Handle image-based documents directly
-                images = [document_bytes]
+            if not images:
+                raise ValueError("Could not extract images from document")
             
-            # Process the first image for classification
+            # 3. Classify document (I/O + CPU) - run in executor
             classification = await self.classify_document(images[0])
             document_type = classification.get("document_type", "generic")
             
-            # Process the first image (or only image) for detailed extraction
+            # 4. Extract text (I/O + CPU) - run in executor
             extraction_result = await self.extract_text_from_image(
                 images[0], document_type=document_type
             )
@@ -104,6 +69,95 @@ class OCRProcessor:
         except Exception as e:
             self.logger.error(f"Error processing document: {str(e)}")
             raise
+    
+    async def _detect_mime_type_async(self, document_bytes: bytes) -> str:
+        """
+        Detect MIME type asynchronously (CPU-intensive operation)
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            self.executor,
+            self._detect_mime_type_sync,
+            document_bytes
+        )
+
+    
+    async def _detect_mime_type_async(self, document_bytes: bytes) -> str:
+        """
+        Detect MIME type asynchronously (CPU-intensive operation)
+        """
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            self.executor,
+            self._detect_mime_type_sync,
+            document_bytes
+        )
+    
+
+    def _detect_mime_type_sync(self, document_bytes: bytes) -> str:
+        """
+        Synchronous MIME type detection
+        """
+        mime = magic.Magic(mime=True)
+        return mime.from_buffer(document_bytes)
+    
+
+    async def _convert_document_to_images_async(self, document_bytes: bytes, mime_type: str) -> list:
+        """
+        Convert document to images asynchronously (CPU-intensive operation)
+        """
+        if mime_type == 'application/pdf':
+            loop = asyncio.get_event_loop()
+            return await loop.run_in_executor(
+                self.executor,
+                self._convert_pdf_to_images_sync,
+                document_bytes
+            )
+        else:
+            # For non-PDF documents, just return the bytes as-is
+            return [document_bytes]
+    
+
+    def _convert_pdf_to_images_sync(self, document_bytes: bytes) -> list:
+        """
+        Synchronous PDF to images conversion (CPU-intensive)
+        """
+        images = []
+        temp_pdf_path = None
+        
+        try:
+            # Create a temporary file to save the PDF
+            with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_pdf:
+                temp_pdf.write(document_bytes)
+                temp_pdf_path = temp_pdf.name
+            
+            # Open PDF with PyMuPDF
+            pdf_document = fitz.open(temp_pdf_path)
+            page_count = len(pdf_document)
+            
+            self.logger.info(f"Converting PDF with {page_count} pages to images")
+            
+            # Convert each page to an image (limit to first 3 pages)
+            for page_num in range(min(page_count, 3)):
+                page = pdf_document.load_page(page_num)
+                # Higher resolution for better OCR
+                pix = page.get_pixmap(matrix=fitz.Matrix(2, 2))
+                img_bytes = pix.tobytes("png")
+                images.append(img_bytes)
+                
+                self.logger.debug(f"Converted page {page_num + 1} to image ({len(img_bytes)} bytes)")
+            
+            pdf_document.close()
+            
+        except Exception as pdf_error:
+            self.logger.error(f"Error converting PDF: {pdf_error}")
+            raise
+        finally:
+            # Clean up the temporary file
+            if temp_pdf_path and os.path.exists(temp_pdf_path):
+                os.unlink(temp_pdf_path)
+        
+        return images
     
     async def classify_document(self, image_bytes: bytes) -> Dict[str, Any]:
         """
@@ -179,14 +233,17 @@ class OCRProcessor:
             }
             
             # Invoke Claude
-            response = self.bedrock_client.client.invoke_model(
-                body=json.dumps(request_body),
-                modelId=model_id,
-                accept="application/json",
-                contentType="application/json"
-            )
-            
-            response_body = json.loads(response["body"].read())
+            async with self.bedrock_client._get_client() as client:
+                response = await client.invoke_model(
+                    body=json.dumps(request_body),
+                    modelId=model_id,
+                    accept="application/json",
+                    contentType="application/json"
+                )
+
+            response_body_bytes = await response["body"].read()
+            response_body = json.loads(response_body_bytes)
+        
             
             # Extract the generated text
             generation = response_body["content"][0]["text"]
@@ -258,14 +315,16 @@ class OCRProcessor:
             }
             
             # Invoke Claude directly with image
-            response = self.bedrock_client.client.invoke_model(
-                body=json.dumps(request_body),
-                modelId=model_id,
-                accept="application/json",
-                contentType="application/json"
-            )
+            async with self.bedrock_client._get_client() as client:
+                response = await client.invoke_model(
+                    body=json.dumps(request_body),
+                    modelId=model_id,
+                    accept="application/json",
+                    contentType="application/json"
+                )
             
-            response_body = json.loads(response["body"].read())
+            response_body_bytes = await response["body"].read()
+            response_body = json.loads(response_body_bytes)
             
             # Extract the generated text
             generation = response_body["content"][0]["text"]
@@ -425,6 +484,11 @@ class OCRProcessor:
             
             Provide the data in valid JSON format only. If any field is not found in the document, leave it as an empty string or empty array.
             """
+    
+    def __del__(self):
+        """Cleanup thread pool on deletion"""
+        if hasattr(self, 'executor'):
+            self.executor.shutdown(wait=False)
         
 
 ocr_processor = OCRProcessor()

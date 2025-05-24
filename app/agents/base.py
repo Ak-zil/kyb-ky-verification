@@ -1,13 +1,12 @@
 import json
-import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, Optional
 
 from app.core.exceptions import AgentExecutionError
 from app.integrations.database import Database
 from app.integrations.persona import PersonaClient
 from app.integrations.sift import SiftClient
 from app.utils.json_encoder import convert_dates_to_strings
-from app.utils.llm import BedrockClient
+from app.utils.connection_pool import connection_pool
 from app.utils.logging import get_logger
 
 
@@ -17,7 +16,7 @@ class BaseAgent:
     def __init__(
         self,
         verification_id: str,
-        bedrock_client: Optional[BedrockClient] = None,
+        bedrock_client: Optional[str] = None,  # This is now unused but kept for compatibility
         db_client: Optional[Database] = None,
         persona_client: Optional[PersonaClient] = None,
         sift_client: Optional[SiftClient] = None,
@@ -27,13 +26,12 @@ class BaseAgent:
         
         Args:
             verification_id: ID of the verification
-            bedrock_client: Amazon Bedrock client
+            bedrock_client: Deprecated - kept for compatibility
             db_client: Database client
             persona_client: Persona client
             sift_client: Sift client
         """
         self.verification_id = verification_id
-        self.bedrock_client = bedrock_client
         self.db_client = db_client
         self.persona_client = persona_client
         self.sift_client = sift_client
@@ -61,18 +59,16 @@ class BaseAgent:
             }
 
     async def extract_data_with_llm(
-    self, 
-    data: Dict[str, Any], 
-    prompt: str,
-    # model_id: str = "anthropic.claude-3-sonnet-20240229-v1:0"
-) -> Dict[str, Any]:
+        self, 
+        data: Dict[str, Any], 
+        prompt: str,
+    ) -> Dict[str, Any]:
         """
         Use Bedrock LLM to extract and analyze data
         
         Args:
             data: Data to analyze
             prompt: Prompt for LLM
-            model_id: Model ID to use
             
         Returns:
             Dict containing extraction results
@@ -84,14 +80,15 @@ class BaseAgent:
             # Format the prompt for the LLM
             formatted_prompt = self._format_llm_prompt(json_safe_data, prompt)
             
-            # Call Bedrock API
-            response = await self.bedrock_client.extract_structured_data(
-                data=json_safe_data,
-                extraction_instructions=prompt,
-                # model_id=model_id
-            )
+            # Use connection pool to get client
+            async with connection_pool.get_client("bedrock") as bedrock_client:
+                response = await bedrock_client.extract_structured_data(
+                    data=json_safe_data,
+                    extraction_instructions=prompt,
+                )
             
             return response
+            
         except Exception as e:
             self.logger.error(f"LLM extraction error: {str(e)}")
             raise AgentExecutionError(f"LLM extraction error: {str(e)}")

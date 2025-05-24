@@ -311,6 +311,41 @@ class Database:
             self.logger.error(f"Error getting verification agent results: {str(e)}")
             raise
 
+    async def get_verification_final_result(
+        self, 
+        verification_id: str
+    ) -> Optional[Dict[str, Any]]:
+        """
+        Get the final verification result from the main Verification table
+        
+        Args:
+            verification_id: ID of the verification
+            
+        Returns:
+            Dict containing final verification result or None if not found
+        """
+        try:
+            result = await self.session.execute(
+                select(Verification).where(Verification.verification_id == verification_id)
+            )
+            verification = result.scalars().first()
+            
+            if not verification:
+                return None
+            
+            return {
+                "verification_id": verification.verification_id,
+                "status": verification.status,
+                "result": verification.result,
+                "reason": verification.reason,
+                "created_at": verification.created_at,
+                "updated_at": verification.updated_at,
+                "completed_at": verification.completed_at
+            }
+        except Exception as e:
+            self.logger.error(f"Error getting verification final result: {str(e)}")
+            raise
+
     async def store_ubo_verifications(
         self, 
         verification_id: str, 

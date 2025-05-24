@@ -68,6 +68,34 @@ class Settings(BaseSettings):
     PERSONA_API_KEY: Optional[str] = None
     SIFT_API_KEY: Optional[str] = None
 
+
+     # Redis Configuration for Arq
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
+    REDIS_PASSWORD: Optional[str] = None
+    REDIS_DB: int = 0
+    REDIS_URL: Optional[str] = None
+
+    @validator("REDIS_URL", pre=True)
+    def assemble_redis_url(cls, v: Optional[str], values: Dict[str, Any]) -> str:
+        if isinstance(v, str) and v:
+            return v
+        
+        host = values.get("REDIS_HOST", "localhost")
+        port = values.get("REDIS_PORT", 6379)
+        password = values.get("REDIS_PASSWORD")
+        db = values.get("REDIS_DB", 0)
+        
+        if password:
+            return f"redis://:{password}@{host}:{port}/{db}"
+        return f"redis://{host}:{port}/{db}"
+
+    # Arq Worker Configuration
+    ARQ_QUEUE_NAME: str = "verification_queue"
+    ARQ_MAX_WORKERS: int = 4
+    ARQ_JOB_TIMEOUT: int = 3600  # 1 hour
+    ARQ_KEEP_RESULT: int = 86400  # 24 hours
+
     # Logging configuration
     LOG_LEVEL: str = "INFO"
 

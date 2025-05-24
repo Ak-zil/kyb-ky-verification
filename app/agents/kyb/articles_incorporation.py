@@ -54,7 +54,6 @@ class ArticlesIncorporationAgent(BaseAgent):
                 all_documents = document_info.get("documents", [])
 
 
-                self.logger.info(f"document info {document_info}")
                 
                 # Process all documents to find articles of incorporation data
                 for document in all_documents:

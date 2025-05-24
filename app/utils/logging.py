@@ -28,8 +28,61 @@ class CustomFormatter(logging.Formatter):
         return formatter.format(record)
 
 
+# Global flag to track if logging has been setup
+_logging_configured = False
+
+
+def setup_logging(log_level: str = None) -> None:
+    """
+    Setup root logging configuration for the entire application
+    
+    Args:
+        log_level: Log level to use (defaults to settings.LOG_LEVEL)
+    """
+    global _logging_configured
+    
+    if _logging_configured:
+        return
+    
+    log_level = log_level or settings.LOG_LEVEL
+    
+    # Get root logger
+    root_logger = logging.getLogger()
+    
+    # Clear any existing handlers
+    for handler in root_logger.handlers[:]:
+        root_logger.removeHandler(handler)
+    
+    # Set root logger level
+    root_logger.setLevel(getattr(logging, log_level.upper()))
+    
+    # Create console handler
+    console_handler = logging.StreamHandler(sys.stdout)
+    console_handler.setLevel(getattr(logging, log_level.upper()))
+    
+    # Set formatter
+    console_handler.setFormatter(CustomFormatter())
+    
+    # Add handler to root logger
+    root_logger.addHandler(console_handler)
+    
+    # Configure specific loggers
+    logging.getLogger("arq").setLevel(logging.INFO)
+    logging.getLogger("verification_worker").setLevel(logging.INFO)
+    logging.getLogger("redis").setLevel(logging.WARNING)
+    logging.getLogger("sqlalchemy.engine").setLevel(logging.WARNING)
+    logging.getLogger("aiomysql").setLevel(logging.WARNING)
+    logging.getLogger("asyncpg").setLevel(logging.WARNING)
+    
+    # Mark as configured
+    _logging_configured = True
+    
+    # Test logging
+    root_logger.info("🚀 Logging system initialized")
+
 def get_logger(name: str) -> logging.Logger:
     """Get a configured logger"""
+
     logger = logging.getLogger(name)
     
     # Set level from settings

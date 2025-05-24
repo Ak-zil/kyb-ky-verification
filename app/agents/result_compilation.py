@@ -138,24 +138,59 @@ class BusinessResultCompilationAgent(BaseAgent):
                 business_agent_results_dicts.append(result_dict)
             
             # Fetch UBO verification results
+            # ubo_results = []
+            # for ubo_verification_id in self.ubo_verification_ids:
+            #     # Get verification
+            #     verification = await self.db_client.get_verification(ubo_verification_id)
+                
+            #     # Get final result
+            #     ubo_agent_results = await self.db_client.get_verification_agent_results(ubo_verification_id)
+                
+            #     # Find the ResultCompilationAgent result
+            #     ubo_final_result = next((r for r in ubo_agent_results 
+            #                         if r.agent_type == "ResultCompilationAgent"), None)
+                
+            #     self.logger.info(f"ubo result {ubo_final_result.__dict__}")
+                
+            #     ubo_results.append({
+            #         "verification_id": ubo_verification_id,
+            #         "status": verification.status if verification else "unknown",
+            #         "result": ubo_final_result.result if ubo_final_result else None,
+            #         "reasoning": ubo_final_result.reason if ubo_final_result else None
+            #     })
+
+
             ubo_results = []
             for ubo_verification_id in self.ubo_verification_ids:
-                # Get verification
-                verification = await self.db_client.get_verification(ubo_verification_id)
-                
-                # Get final result
-                ubo_agent_results = await self.db_client.get_verification_agent_results(ubo_verification_id)
-                
-                # Find the ResultCompilationAgent result
-                ubo_final_result = next((r for r in ubo_agent_results 
-                                    if r.agent_type == "ResultCompilationAgent"), None)
-                
-                ubo_results.append({
-                    "verification_id": ubo_verification_id,
-                    "status": verification.status if verification else "unknown",
-                    "result": ubo_final_result.verification_result if ubo_final_result else None,
-                    "reasoning": ubo_final_result.reasoning if ubo_final_result else None
-                })
+                try:
+                    # Use the new method to get final verification result
+                    final_result = await self.db_client.get_verification_final_result(ubo_verification_id)
+                    
+                    if final_result:
+                        ubo_results.append({
+                            "verification_id": ubo_verification_id,
+                            "status": final_result["status"],
+                            "result": final_result["result"],
+                            "reasoning": final_result["reason"]
+                        })
+                    else:
+                        self.logger.warning(f"UBO verification {ubo_verification_id} not found")
+                        ubo_results.append({
+                            "verification_id": ubo_verification_id,
+                            "status": "not_found",
+                            "result": "failed",
+                            "reasoning": "Verification record not found"
+                        })
+                except Exception as e:
+                    self.logger.error(f"Error getting UBO verification {ubo_verification_id}: {str(e)}")
+                    ubo_results.append({
+                        "verification_id": ubo_verification_id,
+                        "status": "error",
+                        "result": "failed",
+                        "reasoning": f"Error retrieving verification: {str(e)}"
+                    })
+
+
             
             # Check if any business agents had errors
             business_errors = [r for r in business_agent_results if r.status == "error"]
@@ -170,6 +205,7 @@ class BusinessResultCompilationAgent(BaseAgent):
                     "business_agent_results": business_agent_results_dicts,
                     "ubo_results": ubo_results
                 }
+            
             
             # Use LLM to analyze all results and make a final determination
             verification_analysis = await self.extract_data_with_llm(

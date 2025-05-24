@@ -12,6 +12,8 @@ from app.db.init_db import init_db
 from app.db.session import get_db
 from app.integrations.external_database import external_db
 from app.utils.logging import get_logger
+from app.utils.llm import bedrock_client
+from app.services.job_service import job_service
 
 logger = get_logger("main")
 
@@ -24,17 +26,36 @@ async def lifespan(app: FastAPI):
         async for db in get_db():
             await init_db(db)
             break
+        
+        # Initialize job service
+        logger.info("Initializing job service...")
+        # job_service will initialize its Redis connection on first use
+        
+        logger.info("Application startup completed")
+        
     except Exception as e:
-        logger.error(f"Error initializing database: {str(e)}")
+        logger.error(f"Error during startup: {str(e)}")
         raise
     
     yield  # This is where the application runs
     
     try:
         # Cleanup resources (shutdown)
+        logger.info("Shutting down application...")
+        
+        # Close external database connection
         await external_db.close()
+        
+        # Close Bedrock client
+        await bedrock_client.close()
+        
+        # Close job service
+        await job_service.close()
+        
+        logger.info("Application shutdown completed")
+        
     except Exception as e:
-        logger.error(f"Error closing external database connection: {str(e)}")
+        logger.error(f"Error during shutdown: {str(e)}")
 
 # Initialize FastAPI app with lifespan
 app = FastAPI(
@@ -71,6 +92,31 @@ else:
 async def health():
     """Health check endpoint"""
     return {"status": "ok"}
+
+# Job status endpoint
+@app.get("/job-status/{job_id}")
+async def get_job_status(job_id: str):
+    """Get job status"""
+    try:
+        logger.info("getting status")
+        status = await job_service.get_job_status(job_id)
+        if status:
+            return status
+        else:
+            raise HTTPException(status_code=404, detail="Job not found")
+    except Exception as e:
+        logger.error(f"Error getting job status: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting job status")
+
+# Queue info endpoint
+@app.get("/queue-info")
+async def get_queue_info():
+    """Get queue information"""
+    try:
+        return await job_service.get_queue_info()
+    except Exception as e:
+        logger.error(f"Error getting queue info: {str(e)}")
+        raise HTTPException(status_code=500, detail="Error getting queue info")
 
 # Serve index.html for root path
 @app.get("/")
