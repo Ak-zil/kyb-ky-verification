@@ -39,7 +39,8 @@ class GovtIdVerificationAgent(BaseAgent):
                 {"name": "Portrait clarity", "persona_name": "id_portrait_clarity_detection"},
                 {"name": "Portrait", "persona_name": "id_portrait_detection"},
                 {"name": "Selfie-to ID comparison", "persona_name": "id_selfie_comparison"},
-                {"name": "ID image tampering", "persona_name": "id_tamper_detection"}
+                {"name": "ID image tampering", "persona_name": "id_tamper_detection"},
+                {"name": "Experimental Model Detection", "persona_name": "id_experimental_model_detection"},
             ]
             
             # Process checks
